@@ -18,9 +18,9 @@ This is a customer segmentation project that utilizes DBSCAN
 
 Model Interpretation
 
- Cluster 2 (green yellow) -> Earning high , spending less
-    Cluster 0 (orange) -> earning less, spending more
-        Cluster 1 (yellow) -> earning high and also spending high [TARGET SET]
+- Cluster 2 (green yellow) -> Earning high , spending less
+- Cluster 0 (orange) -> earning less, spending more
+- Cluster 1 (yellow) -> earning high and also spending high [TARGET SET]
         
         
 Cluster Id vs Gender
