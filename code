@@ -1,0 +1,309 @@
+
+import numpy as np 
+import pandas as pd 
+import matplotlib.pyplot as plt #Data Visualization 
+import seaborn as sns
+
+from sklearn.cluster import DBSCAN
+from sklearn.metrics import silhouette_score
+import plotly.express as px
+
+import warnings
+warnings.filterwarnings('ignore')
+
+#Import the dataset
+dataset = pd.read_csv('../../           .csv')
+
+dataset.head()
+
+
+data_raw = dataset.copy()
+
+data_raw.describe().T
+
+data_raw.columns
+
+#Data preparation
+
+X_numerics = dataset.drop(['Unnamed: 0', 'index', 'Gender','Age', 'coded_gender'], axis=1)
+X_numerics
+
+
+#Model building: DBSCAN
+
+from itertools import product
+
+eps_values = np.arange(8,12.75,0.25) # eps values to be investigated
+min_samples = np.arange(3,10) # min_samples values to be investigated
+min_samples
+DBSCAN_params = list(product(eps_values, min_samples))
+
+product(eps_values, min_samples)
+min_samples
+
+DBSCAN_params
+type(DBSCAN_params)
+
+DBSCAN_params[2]
+DBSCAN_params[20]
+len(DBSCAN_params)
+
+#Silhouette score
+
+#Silhouette Coefficient or silhouette score is a metric used to calculate the goodness of a clustering technique. Its value ranges from -1 to 1.
+
+#1: Means clusters are well apart from each other and clearly distinguished.
+#0: Means clusters are indifferent, or we can say that the distance between clusters is not significant.
+#-1: Means clusters are assigned in the wrong way.
+
+
+DBSCAN_params[0]
+DBSCAN_params[0][1]
+
+for p in DBSCAN_params:
+    print(p)
+    print(p[1])
+    print('...........')
+    break
+    
+ # Hypertune the DBSCAN with all the possible combinations
+
+no_of_clusters = []
+sil_score = []
+
+for p in DBSCAN_params:
+    
+    # Fit the model with each combination of params
+    DBS_clustering = DBSCAN(eps=p[0], min_samples=p[1])
+    DBS_clustering.fit(X_numerics)
+    
+    # extract the label, ie the cluster identification
+    cluster_ = DBS_clustering.labels_
+    
+    # Save the number of clusters  in a list
+    no_of_clusters.append(len(np.unique(cluster_))) # .nunique()
+    if len(np.unique(cluster_)) > 1:    
+        sil_score.append(silhouette_score(X_numerics, cluster_))
+    else:
+        sil_score.append(0)  
+        
+        
+len(DBSCAN_params)
+len(sil_score)
+len(no_of_clusters)
+
+
+#Choose the optimal values
+
+sil_score
+max(sil_score) #this is good
+
+type(sil_score)
+
+sil_score.index(max(sil_score))
+
+sil_score[0]
+
+DBSCAN_params[0]
+
+DBSCAN_params
+
+#Visual assessment of the results: Heatmap
+
+params_ = pd.DataFrame(DBSCAN_params, columns =['Eps', 'Min_samples'])   
+params_
+
+# Adding a new variable: the no_clusters gained by the models
+params_['No_of_clusters'] = no_of_clusters
+params_
+#.shape
+
+pivot_1 = pd.pivot_table(params_, values='No_of_clusters', 
+                         index='Min_samples', columns='Eps')
+                         
+pivot_1
+
+
+fig, ax = plt.subplots(figsize=(20,6))
+sns.heatmap(pivot_1, 
+            annot=True,
+            annot_kws={"size":12}, cmap="YlGnBu", ax=ax)
+ax.set_title('Number of clusters')
+plt.show()
+
+
+params_['Sil_score'] = sil_score
+
+pivot_2 = pd.pivot_table(params_, values='Sil_score', 
+                         index='Min_samples', columns='Eps')
+                         
+                         
+ pivot_2
+ 
+ fig = plt.subplots(figsize=(20,6))
+sns.heatmap(pivot_2, annot=True, annot_kws={"size": 12}, 
+            cmap="YlGnBu")
+plt.show()
+
+#Step 2: Build the model with the selected eps and min_samples
+
+sil_score.index(max(sil_score))
+sil_score[0]
+
+DBSCAN_params[0]
+
+max_index = sil_score.index(max(sil_score))
+best_params = DBSCAN_params[max_index]
+best_params
+
+#DBS_clustering = DBSCAN(eps =9.25, min_samples = 3)
+DBS_clustering = DBSCAN(eps=best_params[0], min_samples=best_params[1])
+DBS_clustering.fit(X_numerics)
+
+## From the doc: 
+# Cluster labels for each point in the dataset given to fit(). Noisy samples are given the label -1.
+DBS_clustering.labels_
+
+DBSCAN_clustered = X_numerics.copy()
+DBSCAN_clustered['cluster_id'] = DBS_clustering.labels_
+#DBSCAN_clustered.loc[:,'cluster_id'] = DBS_clustering.labels_ 
+
+DBSCAN_clustered
+
+DBSCAN_clustered.cluster_id.value_counts()
+
+#Visual interpretation of the results gained from the model
+
+DBSCAN_clustered.columns[len(DBSCAN_clustered.columns)-1]
+
+def plot_clusters(df_sc, var1, var2, colors, color_column='cluster_id'):
+    """
+    Function to plot each pair of variables after clustering it with Kmeans 
+    
+    input: df_sc -> scaled dataset
+           var1 -> variable 1 (x axis)
+           var2 -> variable 2 (y axis)
+           colors -> list of the colorsfor the clusters
+    """
+ 
+    total_clusters = df_sc.cluster_id.nunique()     
+    fig = px.scatter(df_sc, x = var1, y = var2, 
+                     color = color_column, 
+                     color_continuous_scale=colors)
+    fig.update_layout(coloraxis_showscale=False)
+    fig.show()
+    
+    
+    colors_clusters = ['Black','Coral', 'DarkCyan', 'DarkSeaGreen',
+                   'Gold','Lightgreen', 'DarkOrange', 'GreenYellow']
+# Black: Outliers, class -1!!
+
+plot_clusters(DBSCAN_clustered, 'Annual Income (k$)', 
+              'Spending Score (1-100)',colors_clusters, 'cluster_id')
+              
+              
+              # Dataframe without the Outliers:
+DBSCAN_clustered_good = DBSCAN_clustered[DBSCAN_clustered.cluster_id != -1]
+
+colors_clusters = ['Coral', 'DarkCyan', 'DarkSeaGreen',
+                   'Gold','Lightgreen', 'DarkOrange', 'GreenYellow']
+                   
+plot_clusters(DBSCAN_clustered_good, 'Annual Income (k$)', 'Spending Score (1-100)', colors_clusters)
+
+
+#Model Interpretation
+
+Cluster 2 (green yellow) -> Earning high , spending less
+    Cluster 0 (orange) -> earning less, spending more
+        Cluster 1 (yellow) -> earning high and also spending high [TARGET SET]
+        
+        dataset
+        
+        
+        # Re-arrange to the original data
+dataset['Cluster_Id'] = DBSCAN_clustered['cluster_id'] 
+dataset.head()
+
+#DBSCAN_clustered
+
+# Re-arrange to the original data
+dataset['Cluster_Id'] = DBSCAN_clustered_good['cluster_id']
+dataset.head()
+
+
+dataset.isnull().sum()
+
+#Visual interpretation of the clusters
+
+dataset.head()
+
+dataset = dataset.drop(['Unnamed: 0', 'index'], axis=1)
+
+dataset.columns
+
+dataset.Cluster_Id.unique()
+
+
+dataset.Cluster_Id.unique()[2]
+
+colors_clusters
+
+colors_clusters[2]
+
+color_map = {dataset.Cluster_Id.unique()[0]:colors_clusters[0],
+             dataset.Cluster_Id.unique()[1]:colors_clusters[1],
+             dataset.Cluster_Id.unique()[2]:colors_clusters[2]}
+             
+             color_map
+             
+             
+             dataset_unique_clusters = dataset.Cluster_Id.unique()
+color_map = {}
+for cluster, color in zip(dataset_unique_clusters, colors_clusters):
+    color_map[cluster] = color
+    
+    
+    color_map
+    
+    
+    #Cluster Id vs Gender
+    
+    dataset.head()
+    
+    # Box plot to visualize Cluster_id vs Gender
+fig = px.histogram(dataset, x="Cluster_Id", color="Gender", color_discrete_map=color_map, barmode='group')
+fig.show()
+
+# Box plot to visualize Gender vs Annual Income in function of gender
+fig = px.box(dataset, x = 'Cluster_Id', y = 'Annual Income (k$)',
+             color='Gender', color_discrete_sequence=color_map)
+fig.show()
+
+#Cluster Id vs Annual Income (k$)
+
+# Box plot to visualize Cluster Id vs Annual Income (k$)
+
+fig = px.box(dataset, x='Cluster_Id', y='Annual Income (k$)',color='Cluster_Id',
+            color_discrete_map=color_map)
+fig.show()
+
+#Cluster Id vs Spending Score (1-100)
+
+# Box plot to visualize Cluster Id vs Spending Score (1-100)
+fig = px.box(dataset, x='Cluster_Id', y='Spending Score (1-100)',color='Cluster_Id',
+            color_discrete_map=color_map)
+fig.show()
+
+#Cluster Id vs Age
+
+# Box plot to visualize Cluster Id vs Age
+fig = px.box(dataset, x='Cluster_Id', y='Age',color='Cluster_Id',
+            color_discrete_map=color_map)
+fig.show()
+
+#Cluster ID 1 (target cluster) with all the specificities described above 
+
+
+
+
+
